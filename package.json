@@ -44,7 +44,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "YOUR_GITHUB_USERNAME",
+        "owner": "omgrico",
         "repo": "account-vault",
         "private": true
       }
