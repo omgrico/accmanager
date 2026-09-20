@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vault</title>
+<style>
+  :root{
+    --panel-r:22; --panel-g:23; --panel-b:27;
+    --sidebar-r:16; --sidebar-g:17; --sidebar-b:20;
+    --card-r:30; --card-g:31; --card-b:36;
+    --panel-alpha:0.82;
+    --text:#f1f1f3;
+    --text-dim:#a6a7ac;
+    --text-faint:#75767c;
+    --border:rgba(255,255,255,0.08);
+    --border-soft:rgba(255,255,255,0.05);
+    --accent:#5b8def;
+    --success:#3fb950;
+    --success-bg:rgba(63,185,80,0.14);
+    --warn:#d29922;
+    --warn-bg:rgba(210,153,34,0.14);
+    --danger:#e5534b;
+    --danger-bg:rgba(229,83,75,0.14);
+    --steam:#66c0f4;
+    --rockstar:#d4a017;
+    --discord:#8b93f8;
+    font-size:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    height:100%;
+    margin:0;
+    background:transparent;
+    overflow:hidden;
+  }
+  body{
+    color:var(--text);
+    font-family:"Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    user-select:none;
+  }
+  input, textarea{ user-select:text; }
+  ::-webkit-scrollbar{width:6px;height:6px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:8px;}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.25);}
+
+  .shell{
+    position:relative;
+    width:100vw;height:100vh;
+    border-radius:22px;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,0.09);
+    background:rgba(var(--panel-r),var(--panel-g),var(--panel-b),var(--panel-alpha));
+    display:flex;
+    flex-direction:column;
+  }
+
+  #snowCanvas{
+    position:absolute;inset:0;
+    width:100%;height:100%;
+    z-index:0;
+    pointer-events:none;
+  }
+
+  .titlebar{
+    position:relative;z-index:2;
+    height:32px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 8px 0 14px;
+    -webkit-app-region:drag;
+  }
+  .titlebar .app-tag{
+    font-size:11px;font-weight:600;letter-spacing:.4px;color:var(--text-faint);
+    text-transform:uppercase;
+  }
+  .close-btn{
+    -webkit-app-region:no-drag;
+    width:22px;height:22px;border-radius:999px;
+    border:none;background:rgba(255,255,255,0.07);color:var(--text-dim);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;
+    transition:all .15s ease;flex-shrink:0;
+  }
+  .close-btn:hover{background:var(--danger);color:white;}
+  .close-btn svg{width:11px;height:11px;}
+
+  .body-wrap{
+    position:relative;z-index:2;
+    flex:1;display:flex;min-height:0;
+  }
+
+  .sidebar{
+    width:56px;flex-shrink:0;
+    display:flex;flex-direction:column;align-items:center;
+    padding:6px 0 12px;
+    gap:6px;
+    background:rgba(var(--sidebar-r),var(--sidebar-g),var(--sidebar-b),calc(var(--panel-alpha) * 0.9));
+    border-right:1px solid var(--border-soft);
+  }
+  .nav-spacer{flex:1;}
+  .nav-btn{
+    width:40px;height:40px;border-radius:999px;
+    border:none;background:transparent;color:var(--text-faint);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;
+    transition:all .15s ease;position:relative;
+  }
+  .nav-btn svg{width:18px;height:18px;}
+  .nav-btn:hover{background:rgba(255,255,255,0.06);color:var(--text-dim);}
+  .nav-btn.active{background:var(--accent);color:white;}
+
+  .content{
+    flex:1;min-width:0;overflow-y:auto;
+    padding:16px 14px 20px;
+  }
+  .view{display:none;flex-direction:column;gap:14px;}
+  .view.active{display:flex;}
+
+  .view-title{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:2px;
+  }
+  .view-title h1{font-size:15px;margin:0;font-weight:650;}
+  .view-title p{margin:2px 0 0;font-size:11.5px;color:var(--text-faint);}
+
+  .card{
+    background:rgba(var(--card-r),var(--card-g),var(--card-b),calc(var(--panel-alpha) * 0.95));
+    border:1px solid var(--border);
+    border-radius:18px;
+    padding:14px;
+  }
+  .card + .card{margin-top:0;}
+  .card h2{margin:0 0 2px;font-size:12.5px;font-weight:650;}
+  .card .sub{margin:0 0 10px;font-size:11px;color:var(--text-faint);}
+
+  /* ---- pill buttons ---- */
+  .pill-btn{
+    appearance:none;border:1px solid var(--border);
+    background:rgba(255,255,255,0.05);color:var(--text);
+    padding:8px 16px;border-radius:999px;font-size:12.5px;font-weight:600;
+    cursor:pointer;transition:all .15s ease;
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    white-space:nowrap;
+  }
+  .pill-btn:hover{background:rgba(255,255,255,0.09);}
+  .pill-btn:active{transform:scale(0.97);}
+  .pill-btn.primary{background:var(--accent);border-color:transparent;color:white;}
+  .pill-btn.primary:hover{filter:brightness(1.1);}
+  .pill-btn.block{width:100%;}
+  .pill-btn.tiny{padding:5px 10px;font-size:11px;}
+  .pill-btn.danger{color:var(--danger);border-color:rgba(229,83,75,0.3);background:transparent;}
+  .pill-btn.danger:hover{background:var(--danger-bg);}
+  .pill-btn svg{width:13px;height:13px;flex-shrink:0;}
+
+  .icon-btn{
+    width:24px;height:24px;border-radius:999px;
+    border:1px solid var(--border);background:rgba(255,255,255,0.04);color:var(--text-dim);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;
+    transition:all .15s ease;
+  }
+  .icon-btn:hover{background:rgba(255,255,255,0.1);color:var(--text);}
+  .icon-btn svg{width:12px;height:12px;}
+  .icon-btn.copied{color:var(--success);border-color:rgba(63,185,80,0.4);}
+  .icon-btn.danger:hover{color:var(--danger);border-color:rgba(229,83,75,0.35);background:var(--danger-bg);}
+
+  /* ---- quick pick chips ---- */
+  .chip-row{display:flex;gap:8px;}
+  .chip{
+    flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;
+    padding:10px 4px;border-radius:16px;border:1px solid var(--border);
+    background:rgba(255,255,255,0.04);cursor:pointer;transition:all .15s ease;
+  }
+  .chip:hover{background:rgba(255,255,255,0.08);}
+  .mono-badge{
+    width:30px;height:30px;border-radius:999px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:12.5px;font-weight:700;flex-shrink:0;
+  }
+  .mono-badge.steam{background:rgba(102,192,244,0.16);color:var(--steam);}
+  .mono-badge.rockstar{background:rgba(212,160,23,0.16);color:var(--rockstar);}
+  .mono-badge.discord{background:rgba(139,147,248,0.16);color:var(--discord);}
+  .chip .clabel{font-size:10.5px;font-weight:650;color:var(--text-dim);}
+  .chip .ccount{font-size:9.5px;color:var(--text-faint);}
+
+  .badge{
+    display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;
+    font-size:9.5px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;
+  }
+  .badge.steam{background:rgba(102,192,244,0.14);color:var(--steam);}
+  .badge.rockstar{background:rgba(212,160,23,0.16);color:var(--rockstar);}
+  .badge.discord{background:rgba(139,147,248,0.16);color:var(--discord);}
+  .badge.available{background:var(--success-bg);color:var(--success);}
+  .badge.used{background:var(--warn-bg);color:var(--warn);}
+
+  .empty-state{text-align:center;padding:20px 10px;color:var(--text-faint);font-size:11.5px;}
+
+  /* ---- generated cards ---- */
+  .gen-cards{display:flex;flex-direction:column;gap:10px;}
+  .gen-card{background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:14px;padding:10px 12px;}
+  .gen-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .gen-card-head .time{font-size:9.5px;color:var(--text-faint);}
+  .field-grid{display:flex;flex-direction:column;gap:5px;}
+  .field-row{
+    display:flex;align-items:center;gap:6px;background:rgba(0,0,0,0.18);
+    border:1px solid var(--border-soft);border-radius:10px;padding:6px 8px;
+  }
+  .field-row .flabel{font-size:9px;text-transform:uppercase;letter-spacing:.3px;color:var(--text-faint);width:64px;flex-shrink:0;font-weight:700;}
+  .field-row .fvalue{flex:1;font-family:ui-monospace,"SF Mono",Consolas,monospace;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .copy-all-row{display:flex;justify-content:flex-end;margin-top:8px;}
+
+  .history-list{display:flex;flex-direction:column;gap:2px;max-height:150px;overflow-y:auto;}
+  .history-row{display:flex;align-items:center;gap:8px;padding:6px 2px;border-bottom:1px solid var(--border-soft);font-size:11px;}
+  .history-row:last-child{border-bottom:none;}
+  .history-row .htime{font-size:9.5px;color:var(--text-faint);width:64px;flex-shrink:0;}
+  .history-row .hid{flex:1;color:var(--text-dim);font-family:ui-monospace,monospace;font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+  /* ---- upload ---- */
+  .upload-card{display:flex;flex-direction:column;gap:6px;}
+  .upload-card textarea{
+    width:100%;min-height:52px;resize:none;background:rgba(0,0,0,0.2);
+    border:1px solid var(--border-soft);border-radius:12px;color:var(--text);
+    padding:7px 9px;font-family:ui-monospace,"SF Mono",Consolas,monospace;font-size:10.5px;line-height:1.4;
+  }
+  .upload-card textarea:focus{outline:none;border-color:var(--accent);}
+  .upload-head{display:flex;align-items:center;justify-content:space-between;}
+  .hint{font-size:9.5px;color:var(--text-faint);font-family:ui-monospace,monospace;}
+  .upload-result{font-size:10px;color:var(--success);min-height:12px;}
+
+  /* ---- manage filters ---- */
+  .toolbar{display:flex;gap:6px;}
+  .search-input{
+    flex:1;min-width:0;background:rgba(0,0,0,0.2);border:1px solid var(--border);
+    border-radius:999px;padding:7px 12px;color:var(--text);font-size:11.5px;
+  }
+  .search-input:focus{outline:none;border-color:var(--accent);}
+  select.filter{
+    background:rgba(0,0,0,0.2);border:1px solid var(--border);color:var(--text);
+    border-radius:999px;padding:7px 10px;font-size:11px;cursor:pointer;max-width:84px;
+  }
+  .stat-pills{display:flex;gap:6px;flex-wrap:wrap;}
+  .pill{
+    background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:999px;
+    padding:4px 10px;font-size:10px;color:var(--text-dim);
+  }
+  .pill b{color:var(--text);}
+
+  /* ---- account rows ---- */
+  .acct-list{display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto;padding-right:2px;}
+  .acct-row{
+    display:flex;align-items:center;gap:8px;padding:8px;border-radius:14px;
+    background:rgba(255,255,255,0.04);border:1px solid var(--border-soft);
+  }
+  .acct-row .info{flex:1;min-width:0;cursor:pointer;}
+  .acct-row .idline{font-family:ui-monospace,monospace;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .acct-row .metaline{display:flex;align-items:center;gap:5px;margin-top:3px;}
+  .acct-row .metaline .added{font-size:9px;color:var(--text-faint);}
+  .row-actions{display:flex;gap:3px;flex-shrink:0;}
+
+  /* ---- settings ---- */
+  .setting-block{display:flex;flex-direction:column;gap:6px;}
+  .setting-block + .setting-block{margin-top:14px;}
+  .setting-label{display:flex;align-items:center;justify-content:space-between;font-size:11.5px;font-weight:600;color:var(--text-dim);}
+  .setting-label span.val{color:var(--text);font-family:ui-monospace,monospace;font-size:10.5px;}
+  input[type="range"]{
+    -webkit-appearance:none;width:100%;height:4px;border-radius:999px;
+    background:rgba(255,255,255,0.12);outline:none;
+  }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:15px;height:15px;border-radius:50%;
+    background:var(--accent);cursor:pointer;border:2px solid rgba(255,255,255,0.6);
+  }
+
+  /* ---- toast ---- */
+  .toast-wrap{position:absolute;bottom:14px;right:14px;display:flex;flex-direction:column;gap:6px;z-index:50;align-items:flex-end;}
+  .toast{
+    background:rgba(20,20,24,0.95);border:1px solid var(--border);color:var(--text);
+    padding:8px 14px;border-radius:999px;font-size:11px;box-shadow:0 4px 14px rgba(0,0,0,0.4);
+    animation:slideIn .15s ease;
+  }
+  @keyframes slideIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+  /* ---- modal ---- */
+  .modal-overlay{
+    position:absolute;inset:0;background:rgba(0,0,0,0.55);
+    display:flex;align-items:center;justify-content:center;z-index:60;padding:20px;
+  }
+  .modal{
+    background:rgb(28,29,33);border:1px solid var(--border);border-radius:18px;
+    padding:18px;max-width:100%;width:100%;box-shadow:0 8px 24px rgba(0,0,0,0.4);
+  }
+  .modal h3{margin:0 0 6px;font-size:13.5px;}
+  .modal p{margin:0 0 12px;font-size:11.5px;color:var(--text-dim);line-height:1.5;}
+  .modal .modal-actions{display:flex;gap:6px;justify-content:flex-end;}
+  .modal .field{margin-bottom:8px;}
+  .modal .field label{display:block;font-size:10px;color:var(--text-dim);margin-bottom:3px;font-weight:600;}
+  .modal .field input{
+    width:100%;background:rgba(0,0,0,0.25);border:1px solid var(--border-soft);border-radius:10px;
+    padding:7px 9px;color:var(--text);font-size:11.5px;font-family:ui-monospace,monospace;
+  }
+  .modal .field input:focus{outline:none;border-color:var(--accent);}
+</style>
+</head>
+<body>
+<div class="shell" id="shell">
+  <canvas id="snowCanvas"></canvas>
+
+  <div class="titlebar">
+    <span class="app-tag">Vault</span>
+    <button class="close-btn" id="closeBtn" title="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+
+  <div class="body-wrap">
+    <nav class="sidebar">
+      <button class="nav-btn active" data-view="pull" title="Pull">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4.5 14.5H11L10 22l9-13h-6.5L13 2z"/></svg>
+      </button>
+      <button class="nav-btn" data-view="manage" title="Manage">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v10a2 2 0 01-2 2H5a2 2 0 01-2-2V8M3 8l2-4h14l2 4M3 8h18M9 12h6"/></svg>
+      </button>
+      <div class="nav-spacer"></div>
+      <button class="nav-btn" data-view="settings" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      </button>
+    </nav>
+
+    <div class="content">
+
+      <!-- PULL VIEW -->
+      <div class="view active" id="view-pull">
+        <div class="view-title">
+          <div>
+            <h1>Quick Pull</h1>
+            <p>Grabs a random available account.</p>
+          </div>
+          <button class="pill-btn primary tiny" id="generateAllBtn">Pull All</button>
+        </div>
+
+        <div class="card">
+          <div class="chip-row">
+            <div class="chip" data-type="rockstar">
+              <div class="mono-badge rockstar">R</div>
+              <div class="clabel">Rockstar</div>
+              <div class="ccount" id="cnt-rockstar-available">0 left</div>
+            </div>
+            <div class="chip" data-type="steam">
+              <div class="mono-badge steam">S</div>
+              <div class="clabel">Steam</div>
+              <div class="ccount" id="cnt-steam-available">0 left</div>
+            </div>
+            <div class="chip" data-type="discord">
+              <div class="mono-badge discord">D</div>
+              <div class="clabel">Discord</div>
+              <div class="ccount" id="cnt-discord-available">0 left</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Just Pulled</h2>
+          <p class="sub">Tap a field to copy it.</p>
+          <div id="genCardsWrap">
+            <div class="empty-state">Nothing pulled yet.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>History</h2>
+          <div id="pullHistoryWrap">
+            <div class="empty-state">No pulls yet.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MANAGE VIEW -->
+      <div class="view" id="view-manage">
+        <div class="view-title">
+          <div>
+            <h1>Manage</h1>
+            <p>Upload and organize your accounts.</p>
+          </div>
+        </div>
+
+        <div class="card upload-card">
+          <div class="upload-head"><span class="badge rockstar">Rockstar</span></div>
+          <textarea id="upload-rockstar" placeholder="email:pass:recoveryEmail:recoveryEmailPass:2FAcode"></textarea>
+          <div class="hint">email:pass:recovery:recoveryPass:2FA</div>
+          <div class="upload-head">
+            <span class="upload-result" id="result-rockstar"></span>
+            <button class="pill-btn tiny primary" data-upload="rockstar">Upload</button>
+          </div>
+        </div>
+
+        <div class="card upload-card">
+          <div class="upload-head"><span class="badge steam">Steam</span></div>
+          <textarea id="upload-steam" placeholder="username:pass"></textarea>
+          <div class="hint">username:pass</div>
+          <div class="upload-head">
+            <span class="upload-result" id="result-steam"></span>
+            <button class="pill-btn tiny primary" data-upload="steam">Upload</button>
+          </div>
+        </div>
+
+        <div class="card upload-card">
+          <div class="upload-head"><span class="badge discord">Discord</span></div>
+          <textarea id="upload-discord" placeholder="email:pass:recoveryEmail:recoveryEmailPass:token"></textarea>
+          <div class="hint">email:pass:recovery:recoveryPass:token</div>
+          <div class="upload-head">
+            <span class="upload-result" id="result-discord"></span>
+            <button class="pill-btn tiny primary" data-upload="discord">Upload</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>All Accounts</h2>
+          <div class="stat-pills" id="statPills" style="margin-bottom:8px;"></div>
+          <div class="toolbar" style="margin-bottom:10px;">
+            <input type="text" class="search-input" id="searchInput" placeholder="Search...">
+            <select class="filter" id="filterType">
+              <option value="all">All</option>
+              <option value="rockstar">RS</option>
+              <option value="steam">Steam</option>
+              <option value="discord">Disc</option>
+            </select>
+            <select class="filter" id="filterStatus">
+              <option value="all">Any</option>
+              <option value="available">Free</option>
+              <option value="used">Used</option>
+            </select>
+          </div>
+          <div class="acct-list" id="acctList"></div>
+          <div id="acctEmptyState" class="empty-state" style="display:none;">No matches.</div>
+        </div>
+      </div>
+
+      <!-- SETTINGS VIEW -->
+      <div class="view" id="view-settings">
+        <div class="view-title">
+          <div>
+            <h1>Settings</h1>
+            <p>Tune the look and feel.</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="setting-block">
+            <div class="setting-label">Snowfall speed <span class="val" id="speedVal">1.0x</span></div>
+            <input type="range" id="speedSlider" min="0" max="4" step="0.1" value="1">
+          </div>
+          <div class="setting-block">
+            <div class="setting-label">Background transparency <span class="val" id="alphaVal">82%</span></div>
+            <input type="range" id="alphaSlider" min="15" max="100" step="1" value="82">
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Backup</h2>
+          <p class="sub">Save or restore your vault data.</p>
+          <div style="display:flex;gap:8px;">
+            <button class="pill-btn tiny" id="exportBtn" style="flex:1;">Export</button>
+            <button class="pill-btn tiny" id="importBtn" style="flex:1;">Import</button>
+          </div>
+          <input type="file" id="importFile" accept="application/json" style="display:none;">
+        </div>
+
+        <div class="card" id="updateCard" style="display:none;">
+          <h2>Update available</h2>
+          <p class="sub">A new version has downloaded in the background.</p>
+          <button class="pill-btn primary block tiny" id="installUpdateBtn">Restart &amp; Update</button>
+        </div>
+
+        <div class="card">
+          <h2>About</h2>
+          <p class="sub" id="versionLine">Account Vault</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="toast-wrap" id="toastWrap"></div>
+  <div id="modalRoot"></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const STORAGE_KEY = "accountVaultData_v1";
+  const SETTINGS_KEY = "accountVaultSettings_v1";
+
+  const FIELD_DEFS = {
+    steam:    [{key:"username", label:"User"}, {key:"password", label:"Pass"}],
+    rockstar: [{key:"email", label:"Email"}, {key:"password", label:"Pass"}, {key:"recoveryEmail", label:"Rec. Email"}, {key:"recoveryPassword", label:"Rec. Pass"}, {key:"twoFA", label:"2FA"}],
+    discord:  [{key:"email", label:"Email"}, {key:"password", label:"Pass"}, {key:"recoveryEmail", label:"Rec. Email"}, {key:"recoveryPassword", label:"Rec. Pass"}, {key:"token", label:"Token"}]
+  };
+  const PRIMARY_KEY = { steam:"username", rockstar:"email", discord:"email" };
+  const TYPE_LABEL = { steam:"Steam", rockstar:"Rockstar", discord:"Discord" };
+  const TYPE_LETTER = { steam:"S", rockstar:"R", discord:"D" };
+
+  let data = loadData();
+  let settings = loadSettings();
+
+  function loadData(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){ const parsed = JSON.parse(raw); if(parsed && Array.isArray(parsed.accounts)) return parsed; }
+    }catch(e){}
+    return { accounts: [], pullHistory: [] };
+  }
+  function saveData(){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+    catch(e){ toast("Save failed: " + e.message, true); }
+  }
+  function loadSettings(){
+    try{
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if(raw){ const parsed = JSON.parse(raw); if(parsed) return Object.assign({speed:1, alpha:82}, parsed); }
+    }catch(e){}
+    return { speed: 1, alpha: 82 };
+  }
+  function saveSettings(){ try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }catch(e){} }
+
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+  function splitFields(line, count){
+    const parts = [];
+    let remaining = line;
+    for(let i=0;i<count-1;i++){
+      const idx = remaining.indexOf(":");
+      if(idx === -1){ parts.push(remaining); remaining = ""; break; }
+      parts.push(remaining.slice(0, idx));
+      remaining = remaining.slice(idx+1);
+    }
+    parts.push(remaining);
+    while(parts.length < count) parts.push("");
+    return parts.map(p => p.trim());
+  }
+
+  function parseBulk(type, text){
+    const defs = FIELD_DEFS[type];
+    const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+    const results = [];
+    for(const line of lines){
+      const values = splitFields(line, defs.length);
+      const fields = {};
+      defs.forEach((d, i) => { fields[d.key] = values[i] || ""; });
+      if(Object.values(fields).every(v => v === "")) continue;
+      results.push(fields);
+    }
+    return results;
+  }
+
+  function addAccounts(type, text){
+    const parsed = parseBulk(type, text);
+    if(parsed.length === 0) return 0;
+    const now = Date.now();
+    parsed.forEach(fields => {
+      data.accounts.push({ id: uid(), type, fields, status: "available", addedAt: now, lastUsedAt: null });
+    });
+    saveData();
+    return parsed.length;
+  }
+
+  function copyText(str){
+    return new Promise((resolve, reject) => {
+      if(navigator.clipboard && window.isSecureContext){
+        navigator.clipboard.writeText(str).then(resolve).catch(() => fallback());
+      } else { fallback(); }
+      function fallback(){
+        try{
+          const ta = document.createElement("textarea");
+          ta.value = str; ta.style.position = "fixed"; ta.style.opacity = "0";
+          document.body.appendChild(ta); ta.focus(); ta.select();
+          const ok = document.execCommand("copy");
+          document.body.removeChild(ta);
+          ok ? resolve() : reject(new Error("copy failed"));
+        }catch(e){ reject(e); }
+      }
+    });
+  }
+
+  function toast(msg, isError){
+    const wrap = document.getElementById("toastWrap");
+    const t = document.createElement("div");
+    t.className = "toast";
+    if(isError) t.style.borderColor = "rgba(229,83,75,0.4)";
+    t.textContent = msg;
+    wrap.appendChild(t);
+    setTimeout(() => { t.style.opacity = "0"; t.style.transition="opacity .3s"; setTimeout(()=>t.remove(),300); }, 1900);
+  }
+
+  function fmtDate(ts){
+    if(!ts) return "—";
+    const d = new Date(ts);
+    return d.toLocaleDateString(undefined,{month:"short",day:"numeric"});
+  }
+
+  function svgCopy(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>'; }
+  function svgCheck(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>'; }
+  function svgTrash(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>'; }
+  function svgEdit(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 013 3L12 15l-4 1 1-4z"/></svg>'; }
+  function svgCheckCircle(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>'; }
+  function svgUndo(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.5 9A9 9 0 003.6 6.4M3.5 15a9 9 0 0016.9 2.6"/></svg>'; }
+
+  // ---------- Window controls ----------
+  document.getElementById("closeBtn").addEventListener("click", () => {
+    if(window.electronAPI && window.electronAPI.closeWindow) window.electronAPI.closeWindow();
+    else window.close();
+  });
+
+  // ---------- Auto-update ----------
+  if(window.electronAPI && window.electronAPI.onUpdateReady){
+    window.electronAPI.onUpdateReady(() => {
+      document.getElementById("updateCard").style.display = "block";
+      toast("Update downloaded — see Settings");
+    });
+  }
+  const installUpdateBtn = document.getElementById("installUpdateBtn");
+  if(installUpdateBtn){
+    installUpdateBtn.addEventListener("click", () => {
+      if(window.electronAPI && window.electronAPI.installUpdate) window.electronAPI.installUpdate();
+    });
+  }
+
+  // ---------- Nav ----------
+  document.querySelectorAll(".nav-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("view-" + btn.dataset.view).classList.add("active");
+    });
+  });
+
+  // ---------- Pull ----------
+  function availableOf(type){ return data.accounts.filter(a => a.type === type && a.status === "available"); }
+  function updatePullCounts(){
+    ["rockstar","steam","discord"].forEach(t => {
+      document.getElementById("cnt-"+t+"-available").textContent = availableOf(t).length + " left";
+    });
+  }
+
+  function pickRandom(type){
+    const pool = availableOf(type);
+    if(pool.length === 0) return null;
+    const acct = pool[Math.floor(Math.random()*pool.length)];
+    acct.status = "used";
+    acct.lastUsedAt = Date.now();
+    data.pullHistory.unshift({ id: uid(), type, primary: acct.fields[PRIMARY_KEY[type]] || "(none)", timestamp: Date.now() });
+    if(data.pullHistory.length > 300) data.pullHistory.length = 300;
+    return acct;
+  }
+
+  function renderGenCards(results){
+    const wrap = document.getElementById("genCardsWrap");
+    const shown = results.filter(r => r.account);
+    const missing = results.filter(r => !r.account);
+    if(shown.length === 0 && missing.length === 0){
+      wrap.innerHTML = '<div class="empty-state">Nothing pulled yet.</div>';
+      return;
+    }
+    let html = '<div class="gen-cards">';
+    shown.forEach(({type, account}) => { html += renderGenCard(type, account); });
+    missing.forEach(({type}) => {
+      html += `<div class="gen-card"><div class="gen-card-head"><span class="badge ${type}">${TYPE_LABEL[type]}</span></div><div class="hint" style="font-size:10.5px;">No available ${TYPE_LABEL[type]} accounts.</div></div>`;
+    });
+    html += '</div>';
+    wrap.innerHTML = html;
+
+    wrap.querySelectorAll("[data-copy]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        copyText(btn.dataset.copy).then(() => {
+          const original = btn.innerHTML;
+          btn.classList.add("copied"); btn.innerHTML = svgCheck();
+          setTimeout(() => { btn.classList.remove("copied"); btn.innerHTML = original; }, 1000);
+        }).catch(() => toast("Copy failed", true));
+      });
+    });
+    wrap.querySelectorAll("[data-copy-all]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        copyText(btn.dataset.copyAll).then(() => toast("Copied all")).catch(() => toast("Copy failed", true));
+      });
+    });
+  }
+
+  function renderGenCard(type, account){
+    const defs = FIELD_DEFS[type];
+    let fieldsHtml = "";
+    defs.forEach(d => {
+      const val = account.fields[d.key] || "";
+      fieldsHtml += `
+        <div class="field-row">
+          <span class="flabel">${d.label}</span>
+          <span class="fvalue">${escapeHtml(val)}</span>
+          <button class="icon-btn" data-copy="${escapeAttr(val)}" title="Copy">${svgCopy()}</button>
+        </div>`;
+    });
+    const allText = defs.map(d => account.fields[d.key] || "").join(":");
+    return `
+      <div class="gen-card">
+        <div class="gen-card-head">
+          <span class="badge ${type}">${TYPE_LABEL[type]}</span>
+          <span class="time">${fmtDate(account.lastUsedAt)}</span>
+        </div>
+        <div class="field-grid">${fieldsHtml}</div>
+        <div class="copy-all-row"><button class="pill-btn tiny" data-copy-all="${escapeAttr(allText)}">Copy all</button></div>
+      </div>`;
+  }
+
+  function renderPullHistory(){
+    const wrap = document.getElementById("pullHistoryWrap");
+    if(data.pullHistory.length === 0){ wrap.innerHTML = '<div class="empty-state">No pulls yet.</div>'; return; }
+    let html = '<div class="history-list">';
+    data.pullHistory.slice(0, 60).forEach(h => {
+      html += `<div class="history-row"><span class="htime">${fmtDate(h.timestamp)}</span><span class="badge ${h.type}">${TYPE_LETTER[h.type]}</span><span class="hid">${escapeHtml(h.primary)}</span></div>`;
+    });
+    html += '</div>';
+    wrap.innerHTML = html;
+  }
+
+  document.getElementById("generateAllBtn").addEventListener("click", () => {
+    const results = ["rockstar","steam","discord"].map(type => ({ type, account: pickRandom(type) }));
+    saveData(); renderGenCards(results); renderPullHistory(); updatePullCounts(); renderManageView();
+  });
+  document.querySelectorAll(".chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      const type = chip.dataset.type;
+      const account = pickRandom(type);
+      saveData();
+      renderGenCards([{type, account}]);
+      renderPullHistory(); updatePullCounts(); renderManageView();
+      if(!account) toast(`No available ${TYPE_LABEL[type]} accounts`, true);
+    });
+  });
+
+  // ---------- Upload ----------
+  document.querySelectorAll("[data-upload]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const type = btn.dataset.upload;
+      const ta = document.getElementById("upload-" + type);
+      const count = addAccounts(type, ta.value);
+      const resultEl = document.getElementById("result-" + type);
+      if(count > 0){
+        ta.value = "";
+        resultEl.textContent = `+${count} added`;
+        toast(`Added ${count} ${TYPE_LABEL[type]}`);
+      } else { resultEl.textContent = "No valid lines"; }
+      updatePullCounts(); renderManageView();
+      setTimeout(() => { resultEl.textContent = ""; }, 3500);
+    });
+  });
+
+  // ---------- Manage ----------
+  let revealed = new Set();
+  let searchQuery = "", filterType = "all", filterStatus = "all";
+
+  document.getElementById("searchInput").addEventListener("input", (e) => { searchQuery = e.target.value.toLowerCase(); renderManageView(); });
+  document.getElementById("filterType").addEventListener("change", (e) => { filterType = e.target.value; renderManageView(); });
+  document.getElementById("filterStatus").addEventListener("change", (e) => { filterStatus = e.target.value; renderManageView(); });
+
+  function renderStatPills(){
+    const wrap = document.getElementById("statPills");
+    let html = "";
+    ["rockstar","steam","discord"].forEach(t => {
+      const total = data.accounts.filter(a => a.type === t).length;
+      const avail = data.accounts.filter(a => a.type === t && a.status === "available").length;
+      html += `<div class="pill"><b>${TYPE_LETTER[t]}</b> ${avail}/${total}</div>`;
+    });
+    wrap.innerHTML = html;
+  }
+
+  function maskValue(val){
+    if(!val) return "";
+    if(val.includes("@")){
+      const [local, domain] = val.split("@");
+      const head = local.slice(0, Math.min(2, local.length));
+      return head + "•".repeat(Math.max(3, local.length - 2)) + "@" + domain;
+    }
+    if(val.length <= 3) return "•".repeat(val.length);
+    return val.slice(0,2) + "•".repeat(val.length - 2);
+  }
+
+  function renderManageView(){
+    renderStatPills();
+    const listEl = document.getElementById("acctList");
+    const emptyState = document.getElementById("acctEmptyState");
+
+    let list = data.accounts.slice().sort((a,b) => b.addedAt - a.addedAt);
+    if(filterType !== "all") list = list.filter(a => a.type === filterType);
+    if(filterStatus !== "all") list = list.filter(a => a.status === filterStatus);
+    if(searchQuery) list = list.filter(a => Object.values(a.fields).some(v => (v||"").toLowerCase().includes(searchQuery)));
+
+    if(list.length === 0){ listEl.innerHTML = ""; emptyState.style.display = "block"; return; }
+    emptyState.style.display = "none";
+
+    listEl.innerHTML = list.map(a => {
+      const primaryVal = a.fields[PRIMARY_KEY[a.type]] || "";
+      const isRevealed = revealed.has(a.id);
+      const displayVal = isRevealed ? primaryVal : maskValue(primaryVal);
+      return `
+        <div class="acct-row" data-id="${a.id}">
+          <div class="mono-badge ${a.type}">${TYPE_LETTER[a.type]}</div>
+          <div class="info" data-action="reveal">
+            <div class="idline">${escapeHtml(displayVal)}</div>
+            <div class="metaline">
+              <span class="badge ${a.status}">${a.status === "available" ? "Free" : "Used"}</span>
+              <span class="added">${fmtDate(a.addedAt)}</span>
+            </div>
+          </div>
+          <div class="row-actions">
+            <button class="icon-btn" data-action="copy" title="Copy">${svgCopy()}</button>
+            <button class="icon-btn" data-action="edit" title="Edit">${svgEdit()}</button>
+            <button class="icon-btn" data-action="toggle" title="Toggle status">${a.status === "available" ? svgCheckCircle() : svgUndo()}</button>
+            <button class="icon-btn danger" data-action="delete" title="Delete">${svgTrash()}</button>
+          </div>
+        </div>`;
+    }).join("");
+
+    listEl.querySelectorAll(".acct-row").forEach(row => {
+      const id = row.dataset.id;
+      const account = data.accounts.find(a => a.id === id);
+      row.querySelector('[data-action="reveal"]').addEventListener("click", () => {
+        if(revealed.has(id)) revealed.delete(id); else revealed.add(id);
+        renderManageView();
+      });
+      row.querySelector('[data-action="copy"]').addEventListener("click", () => {
+        const defs = FIELD_DEFS[account.type];
+        const raw = defs.map(d => account.fields[d.key] || "").join(":");
+        copyText(raw).then(() => toast("Copied")).catch(() => toast("Copy failed", true));
+      });
+      row.querySelector('[data-action="edit"]').addEventListener("click", () => openEditModal(account));
+      row.querySelector('[data-action="toggle"]').addEventListener("click", () => {
+        account.status = account.status === "available" ? "used" : "available";
+        if(account.status === "used") account.lastUsedAt = Date.now();
+        saveData(); updatePullCounts(); renderManageView();
+      });
+      row.querySelector('[data-action="delete"]').addEventListener("click", () => openDeleteModal(account));
+    });
+  }
+
+  // ---------- Modals ----------
+  function closeModal(){ document.getElementById("modalRoot").innerHTML = ""; }
+
+  function openDeleteModal(account){
+    const primaryVal = account.fields[PRIMARY_KEY[account.type]] || "";
+    document.getElementById("modalRoot").innerHTML = `
+      <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+          <h3>Delete account?</h3>
+          <p>${TYPE_LABEL[account.type]} — <span style="font-family:ui-monospace,monospace;">${escapeHtml(primaryVal)}</span></p>
+          <div class="modal-actions">
+            <button class="pill-btn tiny" id="modalCancel">Cancel</button>
+            <button class="pill-btn tiny danger" id="modalConfirm">Delete</button>
+          </div>
+        </div>
+      </div>`;
+    document.getElementById("modalCancel").addEventListener("click", closeModal);
+    document.getElementById("modalOverlay").addEventListener("click", (e) => { if(e.target.id === "modalOverlay") closeModal(); });
+    document.getElementById("modalConfirm").addEventListener("click", () => {
+      data.accounts = data.accounts.filter(a => a.id !== account.id);
+      saveData(); closeModal(); updatePullCounts(); renderManageView();
+      toast("Deleted");
+    });
+  }
+
+  function openEditModal(account){
+    const defs = FIELD_DEFS[account.type];
+    const fieldsHtml = defs.map(d => `
+      <div class="field"><label>${d.label}</label><input type="text" data-key="${d.key}" value="${escapeAttr(account.fields[d.key] || "")}"></div>`).join("");
+    document.getElementById("modalRoot").innerHTML = `
+      <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+          <h3>Edit ${TYPE_LABEL[account.type]}</h3>
+          ${fieldsHtml}
+          <div class="modal-actions">
+            <button class="pill-btn tiny" id="modalCancel">Cancel</button>
+            <button class="pill-btn tiny primary" id="modalSave">Save</button>
+          </div>
+        </div>
+      </div>`;
+    document.getElementById("modalCancel").addEventListener("click", closeModal);
+    document.getElementById("modalOverlay").addEventListener("click", (e) => { if(e.target.id === "modalOverlay") closeModal(); });
+    document.getElementById("modalSave").addEventListener("click", () => {
+      document.querySelectorAll("#modalRoot [data-key]").forEach(input => { account.fields[input.dataset.key] = input.value; });
+      saveData(); closeModal(); renderManageView(); toast("Updated");
+    });
+  }
+
+  // ---------- Export / Import ----------
+  document.getElementById("exportBtn").addEventListener("click", () => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `account-vault-backup-${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url); toast("Backup downloaded");
+  });
+  document.getElementById("importBtn").addEventListener("click", () => document.getElementById("importFile").click());
+  document.getElementById("importFile").addEventListener("change", (e) => {
+    const file = e.target.files[0]; if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const parsed = JSON.parse(reader.result);
+        if(!parsed || !Array.isArray(parsed.accounts)) throw new Error("Invalid backup file");
+        document.getElementById("modalRoot").innerHTML = `
+          <div class="modal-overlay" id="modalOverlay">
+            <div class="modal">
+              <h3>Import backup</h3>
+              <p>${parsed.accounts.length} accounts found. Merge or replace?</p>
+              <div class="modal-actions">
+                <button class="pill-btn tiny" id="modalCancel">Cancel</button>
+                <button class="pill-btn tiny" id="modalMerge">Merge</button>
+                <button class="pill-btn tiny danger" id="modalReplace">Replace</button>
+              </div>
+            </div>
+          </div>`;
+        document.getElementById("modalCancel").addEventListener("click", closeModal);
+        document.getElementById("modalMerge").addEventListener("click", () => {
+          parsed.accounts.forEach(a => { a.id = uid(); data.accounts.push(a); });
+          (parsed.pullHistory||[]).forEach(h => data.pullHistory.push(h));
+          saveData(); closeModal(); refreshAll(); toast("Merged");
+        });
+        document.getElementById("modalReplace").addEventListener("click", () => {
+          data = { accounts: parsed.accounts, pullHistory: parsed.pullHistory || [] };
+          saveData(); closeModal(); refreshAll(); toast("Replaced");
+        });
+      }catch(err){ toast("Bad file: " + err.message, true); }
+      e.target.value = "";
+    };
+    reader.readAsText(file);
+  });
+
+  // ---------- Settings ----------
+  const speedSlider = document.getElementById("speedSlider");
+  const alphaSlider = document.getElementById("alphaSlider");
+  const speedVal = document.getElementById("speedVal");
+  const alphaVal = document.getElementById("alphaVal");
+
+  function applySettings(){
+    speedSlider.value = settings.speed;
+    alphaSlider.value = settings.alpha;
+    speedVal.textContent = Number(settings.speed).toFixed(1) + "x";
+    alphaVal.textContent = Math.round(settings.alpha) + "%";
+    document.documentElement.style.setProperty("--panel-alpha", (settings.alpha/100).toFixed(2));
+    snowSpeedMultiplier = Number(settings.speed);
+  }
+  speedSlider.addEventListener("input", () => {
+    settings.speed = Number(speedSlider.value);
+    speedVal.textContent = settings.speed.toFixed(1) + "x";
+    snowSpeedMultiplier = settings.speed;
+    saveSettings();
+  });
+  alphaSlider.addEventListener("input", () => {
+    settings.alpha = Number(alphaSlider.value);
+    alphaVal.textContent = Math.round(settings.alpha) + "%";
+    document.documentElement.style.setProperty("--panel-alpha", (settings.alpha/100).toFixed(2));
+    saveSettings();
+  });
+
+  // ---------- Snowfall canvas ----------
+  const canvas = document.getElementById("snowCanvas");
+  const ctx = canvas.getContext("2d");
+  let flakes = [];
+  let snowSpeedMultiplier = 1;
+
+  function resizeCanvas(){
+    const rect = document.getElementById("shell").getBoundingClientRect();
+    canvas.width = rect.width; canvas.height = rect.height;
+  }
+  function initFlakes(){
+    const count = 70;
+    flakes = new Array(count).fill(0).map(() => ({
+      x: Math.random()*canvas.width,
+      y: Math.random()*canvas.height,
+      r: Math.random()*1.6 + 0.6,
+      baseSpeed: Math.random()*0.6 + 0.25,
+      drift: Math.random()*0.6 - 0.3,
+      twinklePhase: Math.random()*Math.PI*2,
+      opacity: Math.random()*0.5 + 0.4
+    }));
+  }
+  function animateSnow(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const t = Date.now() / 1000;
+    for(const f of flakes){
+      const twinkle = 0.6 + 0.4*Math.sin(t*1.5 + f.twinklePhase);
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, f.r, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(255,255,255,${(f.opacity*twinkle).toFixed(3)})`;
+      ctx.fill();
+      f.y += f.baseSpeed * snowSpeedMultiplier;
+      f.x += f.drift * snowSpeedMultiplier * 0.3;
+      if(f.y > canvas.height + 4){ f.y = -4; f.x = Math.random()*canvas.width; }
+      if(f.x > canvas.width + 4) f.x = -4;
+      if(f.x < -4) f.x = canvas.width + 4;
+    }
+    requestAnimationFrame(animateSnow);
+  }
+
+  window.addEventListener("resize", resizeCanvas);
+
+  // ---------- Helpers ----------
+  function escapeHtml(str){ return String(str).replace(/[&<>"']/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[s])); }
+  function escapeAttr(str){ return escapeHtml(str); }
+
+  function refreshAll(){ updatePullCounts(); renderGenCards([]); renderPullHistory(); renderManageView(); }
+
+  if(window.electronAPI && window.electronAPI.getVersion){
+    window.electronAPI.getVersion().then(v => {
+      document.getElementById("versionLine").textContent = "Account Vault v" + v;
+    }).catch(() => {});
+  }
+
+  resizeCanvas();
+  initFlakes();
+  applySettings();
+  animateSnow();
+  refreshAll();
+})();
+</script>
+</body>
+</html>
