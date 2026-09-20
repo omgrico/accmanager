@@ -1,0 +1,60 @@
+{
+  "name": "account-vault",
+  "version": "1.0.0",
+  "description": "Account Vault - personal account manager",
+  "main": "main.js",
+  "author": "ri",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis portable --x64",
+    "release": "electron-builder --win nsis portable --x64 --publish always"
+  },
+  "build": {
+    "appId": "com.ri.accountvault",
+    "productName": "Account Vault",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "update-token.js"
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "renderer/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "AccountVault-Setup.exe"
+    },
+    "portable": {
+      "artifactName": "AccountVault-Windows-Portable.exe"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "YOUR_GITHUB_USERNAME",
+        "repo": "account-vault",
+        "private": true
+      }
+    ]
+  },
+  "devDependencies": {
+    "electron": "^44.4.3",
+    "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  }
+}
